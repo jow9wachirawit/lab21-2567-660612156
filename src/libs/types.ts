@@ -1,42 +1,48 @@
 export interface footerProps {
-    fullName: string;
-    studentId: string;
-    year: string;
-  }
+  fullName: string;
+  studentId: string;
+  year: string;
+}
 
 export interface Payload {
-  username: string;
-  studentId: string;
-  role: string;
+username: string;
+studentId: string;
+role: string;
 }
 
 export interface Student {
-  studentId: string;
-  firstName: string;
-  lastName: string;
-  program: string;
+studentId: string;
+firstName: string;
+lastName: string;
+program: string;
 }
 
 export interface Course {
-  courseNo: string;
-  title: string;
+courseNo: string;
+title: string;
 }
 
 export interface Enrollment {
-  studentId: string;
-  courseNo: string;
+studentId: string;
+courseNo: string;
 }
 
 export interface User {
-  username: string;
-  password:  string;
-  studentId:  string;
-  role:  string;
+username: string;
+password:  string;
+studentId:  string;
+role:  string;
 }
 
 export interface Database {
-  students: Student[];
-  courses: Course[];
-  enrollments: Enrollment[];
-  users: User[];
+students: Student[];
+courses: Course[];
+enrollments: Enrollment[];
+users: User[];
+}
+
+export interface StrangeEnrollment{
+courseNo: string;
+title: string;
+course: Course;
 }

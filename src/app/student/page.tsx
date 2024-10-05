@@ -1,167 +1,94 @@
 "use client";
 
 import { $authenStore } from "@lib/authenStore";
-import { Course } from "@lib/types";
-
-import {
-  Button,
-  Group,
-  Loader,
-  Paper,
-  Stack,
-  Text,
-  TextInput,
-  Title,
-} from "@mantine/core";
-
-import { useStore } from "@nanostores/react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Container, Group, Loader, Title } from "@mantine/core";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
+import Footer from "@components/Footer";
 import axios from "axios";
 
-export default function StudentPage() {
-  const [myEnrollments, setMyEnrollments] = useState<Course[] | null>(null);
-  const [loadingMyEnrollments, setLoadingMyEnrollments] = useState(false);
+import { Inter } from "next/font/google";
+import { MantineProvider } from "@mantine/core";
+import "@mantine/core/styles.css";
 
-  const [loadingEnrolling, setLoadingEnrolling] = useState(false);
-  const [loadingDropping, setLoadingDropping] = useState("");
-  const [courseNo, setCourseNo] = useState("");
+const inter = Inter({ subsets: ["latin"] });
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  const [isCheckingAuthen, setIsCheckingAuthen] = useState(true);
+  const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const pathname = usePathname();
 
-  const { token, authenUsername } = useStore($authenStore);
+  const checkAuthen = async () => {
+    const token = localStorage.getItem("token");
+    const authenUsername = localStorage.getItem("authenUsername");
 
-  const loadMyCourses = async () => {
-    setLoadingMyEnrollments(true);
-    const resp = await axios.get("/api/enrollments", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    //check within localStorage
+    let isTokenValid = true;
+    if (!token || !authenUsername) {
+      isTokenValid = false;
+    } else {
+      //check if token is still valid
 
-    setMyEnrollments(resp.data.enrollments);
-    setLoadingMyEnrollments(false);
+      await axios
+        .get("/api/user/checkAuthen", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        .catch((err) => {
+          console.log(err.message);
+          isTokenValid = false;
+        });
+      $authenStore.set({ token, authenUsername });
+    }
+
+    //go to login if not logged in yet and trying to access protected route
+    if (pathname !== "/" && !isTokenValid) {
+      startTransition(() => {
+        router.push("/");
+      });
+
+      //go to /student if already logged in
+    } else if (pathname === "/" && isTokenValid) {
+      startTransition(() => {
+        router.push("/student");
+      });
+    }
+    setIsCheckingAuthen(false);
   };
 
   useEffect(() => {
-    loadMyCourses();
+    // Check authen when component mounts or route changes
+    checkAuthen();
   }, []);
 
-  const logout = () => {
-    router.push("/");
-    localStorage.removeItem("token");
-    localStorage.removeItem("authenUsername");
-  };
-
-  const callEnrollApi = async () => {
-    try {
-      const resp = await axios.post(
-        "/api/enrollments",
-        {
-          courseNo,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      setCourseNo("");
-      loadMyCourses();
-    } catch (error) {
-      // if (error.response) alert(error.response.data.message);
-      // else alert(error.message);
-
-      if (axios.isAxiosError(error)) {
-        console.log(error.status);
-        console.error(error.response);
-        alert(error.response?.data.message);
-        // Do something with this error...
-      } else {
-        console.error(error);
-        alert(error);
-      }
-    }
-  };
-
-  const callDropApi = async (drop_courseNo: string) => {
-    setLoadingDropping(drop_courseNo);
-    try {
-      const resp = await axios.delete("/api/enrollments", {
-        data: {
-          courseNo: drop_courseNo,
-        },
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      loadMyCourses();
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.log(error.status);
-        console.error(error.response);
-        alert(error.response?.data.message);
-        // Do something with this error...
-      } else {
-        console.error(error);
-        alert(error);
-      }
-    }
-    setLoadingDropping("");
-  };
-
   return (
-    <Stack>
-      <Paper withBorder p="md">
-        <Group>
-          <Title order={4}>Hi, {authenUsername} </Title>
-          <Button color="red" onClick={logout}>
-            Logout
-          </Button>
-        </Group>
-      </Paper>
-      <Paper withBorder p="md">
-        <Title order={4}>My Course(s)</Title>
-
-        {myEnrollments &&
-          myEnrollments.map((enroll: any) => (
-            <Group my="xs" key={enroll.courseNo}>
-              <Text>
-                {enroll.courseNo} - {enroll.course.title}
-              </Text>
-              <Button
-                color="red"
-                size="xs"
-                onClick={() => callDropApi(enroll.courseNo)}
-                loading={enroll.courseNo === loadingDropping}
-              >
-                Drop
-              </Button>
+    <html lang="en">
+      <body className={inter.className}>
+        <MantineProvider>
+          {(isCheckingAuthen || isPending) && (
+            <Group align="center">
+              <Loader />
             </Group>
-          ))}
-        {myEnrollments && myEnrollments.length === 0 && (
-          <Text color="dimmed" size="sm">
-            You have not enrolled any course yet!
-          </Text>
-        )}
-        {loadingMyEnrollments && <Loader type="dots" />}
-      </Paper>
-
-      <Paper withBorder p="md">
-        <Title order={4}> Enroll a Course</Title>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            callEnrollApi();
-          }}
-        >
-          <Group>
-            <TextInput
-              placeholder="6 Digits Course No."
-              maxLength={6}
-              minLength={6}
-              pattern="^[0-9]*$"
-              required
-              onChange={(e) => setCourseNo(e.target.value)}
-              value={courseNo}
-            />
-            <Button type="submit">Enroll</Button>
-          </Group>
-        </form>
-      </Paper>
-    </Stack>
+          )}
+          {!isCheckingAuthen && !isPending && (
+            <Container size="sm">
+              <Title fs="italic" ta="center" c="violet" my="xs">
+                Course Enrollment
+              </Title>
+              {children}
+              <Footer
+                studentId="660612156"
+                fullName="Wachirawit Chaiyamat"
+                year="2024"
+              />
+            </Container>
+          )}
+        </MantineProvider>
+      </body>
+    </html>
   );
 }
